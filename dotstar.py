@@ -26,8 +26,9 @@
 from mraa import Spi as mraa_Spi, init as mraa_init
 from collections import deque
 from time import sleep
-
-
+from PIL import Image
+from PIL import ImageDraw
+from PIL import ImageFont
 class Dotstar(object):
     def __init__(self, led_count=None, bus=None, init_data=None, init_brightness=8):
         self.global_brightness = init_brightness
@@ -88,7 +89,7 @@ class Dotstar(object):
         rgb = hue_to_rgb(self.global_hue)
         self.strip_data.appendleft([self.global_brightness] + rgb)
         self.strip_data.pop()
-
+    
 def hue_to_rgb(hue):
     """
     Choose one of the 1536 fully saturated RGB colors. A fully saturated color
@@ -126,32 +127,36 @@ def main():
     # Initialize and create object for led strip, starting with initial
     # brightness of 0 (all off)
     mraa_init()
-    ds = Dotstar(init_brightness=0)
-    while True:
-        # Moving from led #1 to end of strip
-        for curr in range(4,ds.led_count-4):   
-            # Function to set an LED looks like this:
-            # set(which_LED_to_set, brightness_level, red, blue, green)
-            ds.set(curr-4,0,0,0,0)
-            ds.set(curr-2,10,100,0,0)
-            ds.set(curr-1,50,200,0,0)
-            ds.set(curr,50,250,0,0)
-            ds.set(curr+1,50,200,0,0)
-            ds.set(curr+2,50,150,0,0)
-            ds.set(curr+3,50,100,0,0)
-            # Setting only puts the values in the deque, to actually 
-            # create them, call draw()
-            ds.draw()
-        # Going from last LED all the way back to 1
-        for curr in range(ds.led_count-5, 4, -1):
-            ds.set(curr-3,10,100,0,0)
-            ds.set(curr-2,10,150,0,0)
-            ds.set(curr-1,50,200,0,0)
-            ds.set(curr,50,250,0,0)
-            ds.set(curr+1,50,200,0,0)
-            ds.set(curr+2,50,150,0,0)
-            ds.set(curr+4,0,0,0,0)
-            ds.draw()
+    ds = Dotstar(init_brightness=0,led_count = 216)
+    font = ImageFont.load_default()
+    img = Image.open("logo.png").rotate(0).resize((ds.led_count/72,72))
+    #img = Image.new("RGB", (2,2), (255,0,0))
+    pixels = img.load()
+    width = img.size[0]
+    height = img.size[1]
+    print ds.led_count
     
+    if height > ds.led_count:
+        height=ds.led_count
+    
+    print "WIDTH: ", width
+    print "HEIGHT: ", height
+    gamma = bytearray(256)
+    for i in range(256):
+        gamma[i] = int(pow(float(i) / 255.0, 2.7) * 255.0 + 0.5)
+      
+    for x in range(width):
+        for y in range(height):
+            value = pixels[x,y]
+            if (x%2 is 0):
+                # We need to reverse here!
+                ds.set((x*72)+y,1,gamma[value[0]],gamma[value[1]],gamma[value[2]])
+            else:
+                # Normal section, do not reverse
+                ds.set((x*72)+y,5,gamma[value[0]],gamma[value[1]],gamma[value[2]])
+    ds.draw() 
+
+
 if __name__ == "__main__":
     main()
+
